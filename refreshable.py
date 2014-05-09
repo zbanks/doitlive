@@ -15,10 +15,13 @@ class SafeRefreshMixin(object):
         "_refresh_rev": lambda : 0,
     }
     STATICS = [] # Things to not refreshable
+    AUTO_NONE = False # Automatically populate attributes with None
 
     def __getattr__(self, name):
         # Called when an attribute isn't found (AttributeError)
         # Instantiate the value from DEFAULTS
+        if value not in self.DEFAULTS and not self.AUTO_NONE:
+            raise AttributeError
         value = self.DEFAULTS.get(name)
         if value and value.__call__:
             value = value()
