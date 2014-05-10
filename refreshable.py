@@ -20,7 +20,7 @@ class SafeRefreshMixin(object):
     def __getattr__(self, name):
         # Called when an attribute isn't found (AttributeError)
         # Instantiate the value from DEFAULTS
-        if value not in self.DEFAULTS and not self.AUTO_NONE:
+        if name not in self.DEFAULTS and not self.AUTO_NONE:
             raise AttributeError
         value = self.DEFAULTS.get(name)
         if value and value.__call__:
