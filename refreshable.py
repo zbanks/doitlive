@@ -4,6 +4,7 @@
 # License: MIT
 
 import collections
+import imp
 import inspect
 import threading
 import time
@@ -52,13 +53,12 @@ class SafeRefreshMixin(object):
             traceback.print_exc()
             print "WARNING: Pre-refresh hook failed for module {}. Continuing to refresh...".format(NewClass)
 
-
         if NewClass is None:
             # Try to reload the module & new class
             try:
                 cls = self.__class__
                 module = inspect.getmodule(cls)
-                new_module = reload(module) # `module` should also be updated
+                new_module = imp.reload(module) # `module` should also be updated
                 NewClass = new_module.__dict__[cls.__name__]
             except:
                 traceback.print_exc()
@@ -71,6 +71,7 @@ class SafeRefreshMixin(object):
                 if key not in NewClass.STATICS:
                     if hasattr(item, '__call__'): # need to re-bind methods first; assumes all methods should be bound. (XXX) 
                         # Re-bind with .__get__
+                        print "call", item
                         value = item.__get__(self, NewClass)
                     else:
                         value = item
