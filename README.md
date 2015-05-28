@@ -90,4 +90,4 @@ Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks which c
 Testing
 -------
 
-- Test it out by running `python refreshable.py` and modifying `test.py`.
+- Test it out by running `python run_test.py` and modifying `test.py`.
