@@ -19,8 +19,8 @@ Projects
  - https://github.com/ervanalb/noise 
 
 
-SafeRefreshableMixin
---------------------
+refreshable.SafeRefreshableMixin
+--------------------------------
 
 Provides a `.refresh()` method to reload a class
 
@@ -58,8 +58,8 @@ Once initialized, instances have the following methods:
 - The `__main__` module cannot be reloaded, so the class must exist in an imported module.
 
 
-SafeRefreshableLoop
--------------------
+refreshable.SafeRefreshableLoop
+-------------------------------
 
 Run a function in a loop while making the parent class refreshable.
 
