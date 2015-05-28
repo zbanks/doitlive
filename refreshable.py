@@ -10,6 +10,63 @@ import time
 import traceback
 
 class SafeRefreshMixin(object):
+    """ Provides a `.refresh()` method to reload a class
+
+    Adding the `SafeRefreshMixin` to a class allows you to "refresh" the class
+    using the `.refresh()` method. This method reloads the python file the class
+    came from and replaces all methods and *class* variables (*not* instance 
+    variables!) with the versions from the new file.
+
+    The refresh is "safe" because it tries very hard to keep the program running.
+    On each refresh, a snapshot of the class is saved to form a history. If an
+    error is encountered while performing the refresh, the state is reverted.
+
+    In general, you can wrap calls to methods of your refreshed class in a try
+    block that catches all errors and call `.revert()` on failure.
+
+    Additionally, `DEFAULTS` and `AUTO_NONE` provide options for handling 
+    missing attributes (preventing `AttributeError`s).
+
+    Usage
+    -----
+
+    You can configure the behavior by setting the following class variables:
+
+    - `STATICS`  : List of variable names (strings) that are not refreshed.
+    - `DEFAULTS` : Dictionary of variable names -> values. If an `AttributeError` is
+                   caught, and the attribute is in `DEFAULTS`, the attribute is
+                   populated from the dictionary. This can be useful if you need to
+                   initialize a new state variable.
+    - `AUTO_NONE`: If `True`, catch `AttributeErrors` and set the attribute to `None` 
+                   if the attribute is not in `DEFAULTS`.
+
+    Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks 
+    which can be overriden.
+
+    Once initialized, instances have the following methods:
+
+    - `.init_defaults()`: Initialize attributes from the `DEFAULTS` dict.
+    - `.refresh()`      : Attempt to reload the class from disk.
+    - `.revert()`       : Revert the changes from the previous `.refresh()`.
+    - `.purge()`        : Remove the state history. Each call to `.refresh()` takes a
+                          snapshot of the class. If you refresh often w/ a big class,
+                          this can get large.
+
+    Limitations
+    -----------
+
+    - `.refresh()` assumes all methods are bound (take a `self` parameter). As a
+      result, static/class methods (methods declared with `@staticmethod`, or 
+      `@classmethod`) will not be refreshed properly. These method names should
+      be added to `STATICS` and they will not be refreshed.
+
+    - This framework was designed around the singleton model with one instance of
+      the given refreshed class. It hasn't been extensively tested with multiple
+      instances, and may cause weird behavior around class variables.
+
+    - The `__main__` module cannot be reloaded, so the class must exist in an 
+      imported module.
+    """
     DEFAULTS = {
         "_refresh_history": lambda : [],
         "_refresh_rev": lambda : 0,
@@ -42,10 +99,16 @@ class SafeRefreshMixin(object):
         pass
 
     def refresh(self, NewClass=None):
-        # Reload all class variables & methods
-        # Record existing version to allow reversions if an error is encountered
+        """ Attempt to refresh the class.
 
+        The class's module is reloaded, and all of the methods and *class* (not instance)
+        variables are replaced with the new version.
+
+        A snapshot of the class is kept to allow revisions in case of error.
+        (See `.revert()`)
+        """
         try:
+            # Pre-refresh hook.
             self.pre_refresh()
         except:
             # It's really bad if the pre_refresh hook fails, but there's a chicken-and-egg problem if it does fail XXX
@@ -69,7 +132,10 @@ class SafeRefreshMixin(object):
         try:
             for key, item in NewClass.__dict__.items():
                 if key not in NewClass.STATICS:
-                    if hasattr(item, '__call__'): # need to re-bind methods first; assumes all methods should be bound. (XXX) 
+                    # need to re-bind methods first;
+                    #XXX: Assumes all methods are bound (i.e. take a `self` parameter)
+                    #     This means the class cannot refresh static or class methods.
+                    if hasattr(item, '__call__'):
                         # Re-bind with .__get__
                         value = item.__get__(self, NewClass)
                     else:
@@ -99,7 +165,9 @@ class SafeRefreshMixin(object):
         return self
 
     def revert(self, history=None):
-        # Any issues? Revert to a previous (hopefully working) version in-place
+        """ Revert to a previous snapshot of the class. 
+
+        Usually called when an error is encountered."""
         if not history:
             try:
                 history = self._refresh_history.pop()
@@ -111,7 +179,7 @@ class SafeRefreshMixin(object):
         return True # Reverted!
 
     def purge(self):
-        # History can build up -- purge if the program is stable
+        """ Remove all of the pre-refresh snapshots from the history."""
         try:
             del self._refresh_history 
         except NameError:
@@ -119,17 +187,52 @@ class SafeRefreshMixin(object):
         self._refresh_history = []
 
 class SafeRefreshableLoop(threading.Thread, SafeRefreshMixin):
-    # If you subclass, make sure you call threading.Thread.__init__
+    """ Run a function in a loop while making the parent class refreshable.
+
+    The function `.step()` is called repeatedly while the loop is running.
+    You can start the loop in one of two ways:
+    
+    - `.start()`: Run the loop in a thread.
+    - `.run()`  : (the target of the thread) Run the loop "inline".
+
+    The loop can also be paused with `.stop()` and unpaused with `.restart()`.
+
+    If you subclass, make sure you call threading.Thread.__init__
+    
+    As with the SafeRefreshMixin, you can set the following class variables:
+
+    - `STATICS`  : List of variable names (strings) that are not refreshed.
+    - `DEFAULTS` : Dictionary of variable names -> values. If an `AttributeError` is
+                   caught, and the attribute is in `DEFAULTS`, the attribute is
+                   populated from the dictionary. This can be useful if you need to
+                   initialize a new state variable.
+    - `AUTO_NONE`: If `True`, catch `AttributeErrors` and set the attribute to `None` 
+                   if the attribute is not in `DEFAULTS`.
+
+    And call the following methods:
+
+    - `.refresh()`: Attempt to reload the class from disk.
+    - `.revert()` : Revert the changes from the previous `.refresh()`.
+    - `.purge()`  : Remove the state history. Each call to `.refresh()` takes a
+                    snapshot of the class. If you refresh often w/ a big class,
+                    this can get large.
+
+    Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks 
+    which can be overriden.
+    """
+
+    daemon = True
 
     def stop(self):
-        # Actually 'pause'
+        """ Pauses the refresh loop until `restart` is called. """
         self.stopped = True
 
     def restart(self):
-        # Actually 'unpause'
+        """ Restarts the refresh loop after `stop` was called."""
         self.stopped = False
 
     def step(self):
+        """ Override this method. This is called repeatedly in a loop."""
         raise NotImplementedError
 
     def run(self):
@@ -141,6 +244,10 @@ class SafeRefreshableLoop(threading.Thread, SafeRefreshMixin):
                 # Tolerate errors in step()
                 try: 
                     self.step()
+                except KeyboardInterrupt:
+                    print "Recieved KeyboardInterrupt. Stopping loop."
+                    self.stopped = True
+                    break
                 except:
                     traceback.print_exc()
                     if self.revert():
@@ -149,11 +256,9 @@ class SafeRefreshableLoop(threading.Thread, SafeRefreshMixin):
                         print "Error running loop. No previous version to revert to. Stopping."
                         self.stopped = True
 
+if __name__ == "__main__":
+    import test
+    print "Testing SafeRefreshableLoop:\n"
 
-class Test(SafeRefreshableLoop):
-    A = 9
-    def b(self):
-        return self.A
-    def step(self):
-        print "hello"
-        time.sleep(0.5)
+    t = test.Test(1)
+    t.run()
