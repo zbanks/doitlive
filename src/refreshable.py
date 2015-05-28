@@ -256,10 +256,3 @@ class SafeRefreshableLoop(threading.Thread, SafeRefreshMixin):
                     else:
                         print "Error running loop. No previous version to revert to. Stopping."
                         self.stopped = True
-
-if __name__ == "__main__":
-    import test
-    print "Testing SafeRefreshableLoop:\n"
-
-    t = test.Test(1)
-    t.run()
