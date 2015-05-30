@@ -137,7 +137,6 @@ class SafeRefreshMixin(object):
                     #     This means the class cannot refresh static or class methods.
                     if hasattr(item, '__call__'):
                         # Re-bind with .__get__
-                        print "call", item
                         value = item.__get__(self, NewClass)
                     else:
                         value = item

@@ -18,6 +18,20 @@ Projects
  - https://github.com/zbanks/peebles 
  - https://github.com/ervanalb/noise 
 
+Installation
+------------
+Install from pip:
+
+```
+pip install refreshable
+```
+
+Or install the latest *(ha!)* from git:
+```
+git clone https://github.com/zbanks/doitlive.git
+cd doitlive
+python setup.py install
+```
 
 refreshable.SafeRefreshableMixin
 --------------------------------
@@ -40,7 +54,7 @@ You can configure the behavior by setting the following class variables:
 - `DEFAULTS` : Dictionary of variable names -> values. If an `AttributeError` is caught, and the attribute is in `DEFAULTS`, the attribute is populated from the dictionary. This can be useful if you need to initialize a new state variable.
 - `AUTO_NONE`: If `True`, catch `AttributeErrors` and set the attribute to `None` if the attribute is not in `DEFAULTS`.
 
-Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks which can be overriden.
+Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks which can be overridden.
 
 Once initialized, instances have the following methods:
 
@@ -84,7 +98,7 @@ And call the following methods:
 - `.revert()` : Revert the changes from the previous `.refresh()`.
 - `.purge()`  : Remove the state history. Each call to `.refresh()` takes a snapshot of the class. If you refresh often w/ a big class, this can get large.
 
-Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks which can be overriden.
+Additionally, there are the `.pre_refresh()` and `.post_refresh()` hooks which can be overridden.
 
 
 Testing
